@@ -121,19 +121,34 @@ function generateICS() {
 // Download ICS file - optimized for iOS
 function downloadICS() {
     const icsContent = generateICS();
-
-    // Check if iOS
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    // Create blob
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
 
     if (isIOS) {
-        // For iOS, use data URI which opens directly in Calendar app
-        const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
-        window.open(dataUri, '_blank');
-    } else {
-        // For other devices, download the file
-        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+        // Method for iOS Safari - create a link and simulate click
         const url = URL.createObjectURL(blob);
 
+        // Create invisible link
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'tiec-tat-nien-8386.ics');
+        link.style.display = 'none';
+        document.body.appendChild(link);
+
+        // Trigger click
+        link.click();
+
+        // Cleanup after delay
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1000);
+    } else {
+        // For other devices
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = 'tiec-tat-nien-8386.ics';
@@ -188,11 +203,16 @@ function addToCalendar() {
     const isMac = /Macintosh/.test(navigator.userAgent);
 
     if (isIOS) {
-        // iOS: Use data URI to open Calendar app directly
-        downloadICS();
+        // iOS: Try multiple methods
+        // First, try to open Google Calendar (if app is installed, it will open)
+        // This is more reliable on iOS than ICS download
+        const googleUrl = getGoogleCalendarUrl();
+
+        // Open Google Calendar - works on iOS even without the app
+        // If user has Google Calendar app, it will open the app
+        window.location.href = googleUrl;
     } else if (isAndroid) {
-        // Android: Open Google Calendar (most Android phones have it)
-        // This will open the Google Calendar app directly if installed
+        // Android: Open Google Calendar app directly
         window.location.href = getAndroidCalendarIntent();
     } else if (isMac) {
         // macOS: Download ICS (opens in Apple Calendar)
