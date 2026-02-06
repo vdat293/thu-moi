@@ -196,6 +196,47 @@ function getAndroidCalendarIntent() {
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+// Generate base64 encoded ICS for iOS
+function getBase64ICS() {
+    const icsContent = generateICS();
+    // Convert to base64
+    return btoa(unescape(encodeURIComponent(icsContent)));
+}
+
+// Open iOS Calendar with event
+function openIOSCalendar() {
+    const icsContent = generateICS();
+
+    // Method 1: Try using data URI with text/calendar MIME type
+    // This should prompt iOS to open in Calendar app
+    const base64Content = btoa(unescape(encodeURIComponent(icsContent)));
+    const dataUri = `data:text/calendar;base64,${base64Content}`;
+
+    // Create a temporary iframe to trigger download
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = dataUri;
+    document.body.appendChild(iframe);
+
+    // Also try direct navigation with blob
+    setTimeout(() => {
+        const blob = new Blob([icsContent], { type: 'text/calendar' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Create and click link
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = 'event.ics';
+        link.click();
+
+        // Cleanup
+        setTimeout(() => {
+            document.body.removeChild(iframe);
+            URL.revokeObjectURL(blobUrl);
+        }, 2000);
+    }, 100);
+}
+
 // Add to calendar - detect device and use appropriate method
 function addToCalendar() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -203,14 +244,9 @@ function addToCalendar() {
     const isMac = /Macintosh/.test(navigator.userAgent);
 
     if (isIOS) {
-        // iOS: Try multiple methods
-        // First, try to open Google Calendar (if app is installed, it will open)
-        // This is more reliable on iOS than ICS download
-        const googleUrl = getGoogleCalendarUrl();
-
-        // Open Google Calendar - works on iOS even without the app
-        // If user has Google Calendar app, it will open the app
-        window.location.href = googleUrl;
+        // iOS: Use data URI with base64 ICS content
+        // This triggers iOS to ask "Open in Calendar?"
+        openIOSCalendar();
     } else if (isAndroid) {
         // Android: Open Google Calendar app directly
         window.location.href = getAndroidCalendarIntent();
