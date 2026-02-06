@@ -107,9 +107,9 @@ function generateICS() {
         `LOCATION:${eventDetails.location}`,
         'STATUS:CONFIRMED',
         'BEGIN:VALARM',
-        'TRIGGER:-PT1H',
+        'TRIGGER:-PT30M',
         'ACTION:DISPLAY',
-        'DESCRIPTION:Reminder: Tiệc Tất niên sẽ bắt đầu sau 1 giờ nữa!',
+        'DESCRIPTION:Reminder: Tiệc Tất niên sẽ bắt đầu sau 30 phút nữa!',
         'END:VALARM',
         'END:VEVENT',
         'END:VCALENDAR'
@@ -118,19 +118,30 @@ function generateICS() {
     return icsContent;
 }
 
-// Download ICS file
+// Download ICS file - optimized for iOS
 function downloadICS() {
     const icsContent = generateICS();
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'tiec-tat-nien-8386.ics';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Check if iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    if (isIOS) {
+        // For iOS, use data URI which opens directly in Calendar app
+        const dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
+        window.open(dataUri, '_blank');
+    } else {
+        // For other devices, download the file
+        const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'tiec-tat-nien-8386.ics';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
 }
 
 // Generate Google Calendar URL
@@ -150,18 +161,44 @@ function getGoogleCalendarUrl() {
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+// Generate Android Calendar Intent URL (opens Google Calendar app directly)
+function getAndroidCalendarIntent() {
+    // Format: content://com.android.calendar/events
+    // But for web, Google Calendar URL works best and opens the app if installed
+    const startFormatted = formatDateForICS(eventDetails.startDate);
+    const endFormatted = formatDateForICS(eventDetails.endDate);
+
+    const params = new URLSearchParams({
+        action: 'TEMPLATE',
+        text: eventDetails.title,
+        dates: `${startFormatted}/${endFormatted}`,
+        details: eventDetails.description,
+        location: eventDetails.location,
+        ctz: 'Asia/Ho_Chi_Minh'
+    });
+
+    // This URL will open in Google Calendar app if installed on Android
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 // Add to calendar - detect device and use appropriate method
 function addToCalendar() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
-    const isMobile = isIOS || isAndroid;
+    const isMac = /Macintosh/.test(navigator.userAgent);
 
-    if (isMobile) {
-        // On mobile, download ICS file which will open in native calendar app
+    if (isIOS) {
+        // iOS: Use data URI to open Calendar app directly
+        downloadICS();
+    } else if (isAndroid) {
+        // Android: Open Google Calendar (most Android phones have it)
+        // This will open the Google Calendar app directly if installed
+        window.location.href = getAndroidCalendarIntent();
+    } else if (isMac) {
+        // macOS: Download ICS (opens in Apple Calendar)
         downloadICS();
     } else {
-        // On desktop, try Google Calendar first, then fallback to ICS
-        // Show a small choice or just use Google Calendar
+        // Windows/Linux: Open Google Calendar in browser
         window.open(getGoogleCalendarUrl(), '_blank');
     }
 }
